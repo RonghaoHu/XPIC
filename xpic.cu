@@ -213,6 +213,8 @@ void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, Pa
         fprintf(fp, "\n");
     }
     fclose(fp);
+
+    printf("Saved data, file index is %d", index);
 }
 // Advance Ey and Bz using CUDA.
 cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
@@ -314,40 +316,44 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
     return cudaSuccess;
 }
 
-int main()
-{
-    Parameters para;
+void getParameters(Parameters *para) {
     uint32_t ok=0;
-    para.xmin = 0;
+    para->xmin = 0;
     while (ok == 0) {
  	    printf("Please input\nlaser a0 : ");
-	    scanf(FLAG, &para.a0);
+	    scanf(FLAG, &para->a0);
 	    printf("laser duration : ");
-	    scanf(FLAG, &para.tau);
+	    scanf(FLAG, &para->tau);
 	    printf("box length : ");
-	    scanf(FLAG, &para.xmax);
+	    scanf(FLAG, &para->xmax);
 	    printf("number of grids : ");
-	    scanf("%u", &para.ngrid);
+	    scanf("%u", &para->ngrid);
         printf("simulation length : ");
-        scanf(FLAG, &para.sim_len);
+        scanf(FLAG, &para->sim_len);
         printf("plasma rises from : ");
-        scanf(FLAG, &para.x_rise);
+        scanf(FLAG, &para->x_rise);
         printf("plasma is uniform from : ");
-        scanf(FLAG, &para.x_uni);
+        scanf(FLAG, &para->x_uni);
         printf("plasma falls from : ");
-        scanf(FLAG, &para.x_fall);
+        scanf(FLAG, &para->x_fall);
         printf("plasma ends from : ");
-        scanf(FLAG, &para.x_end);
+        scanf(FLAG, &para->x_end);
         printf("plasma uniform density in 10^18 per c.c. : ");
-        scanf(FLAG, &para.n_plasma);
+        scanf(FLAG, &para->n_plasma);
         printf("number of particles per cell : ");
-        scanf("%u", &para.cell_part_num);
+        scanf("%u", &para->cell_part_num);
 	    printf("Is setup OK ? 0 No 1 Yes : ");
 	    scanf("%u", &ok);
     }
-    para.dx = (para.xmax - para.xmin) / para.ngrid;
-    para.total_part_num = para.cell_part_num * para.ngrid * (para.x_end - para.x_rise) / (para.xmax - para.xmin);
-	
+    para->dx = (para->xmax - para->xmin) / para->ngrid;
+    para->total_part_num = para->cell_part_num * para->ngrid * (para->x_end - para->x_rise) / (para->xmax - para->xmin);
+}
+
+int main()
+{
+    Parameters para;
+    getParameters(&para);
+
     real_t *ey, *bz, *ex;
     real_t *jx, *jy, *np;
     
