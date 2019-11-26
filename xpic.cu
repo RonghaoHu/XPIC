@@ -48,8 +48,10 @@ typedef struct Parameters {
 public:
     real_t a0, tau, xmax, xmin, dx, lambda;
     real_t x_rise, x_uni, x_fall, x_end;
+    real_t t_delay, t_interval;
     real_t n_plasma;
     real_t pi_cs, orb_en;     //photoionization cross-section and orbital energy
+    uint32_t n_pulse;
     uint32_t cell_part_num;
     uint32_t total_part_num;
     uint32_t ngrid;
@@ -214,7 +216,7 @@ void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, Pa
     }
     fclose(fp);
 
-    printf("Saved data, file index is %d", index);
+    printf("Saved data, file index is %d.\n", index);
 }
 // Advance Ey and Bz using CUDA.
 cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
