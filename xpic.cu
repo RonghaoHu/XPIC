@@ -6,6 +6,7 @@
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <curand.h>
+#include <curand_kernel.h>
 
 #define PI 3.14159265359
 
@@ -36,17 +37,19 @@ typedef unsigned int uint32_t;
 
 typedef struct Particle {
 public:
+    bool free;
     real_t x;
-    real_t px,py;
+    real_t px,py,pz;
     real_t gamma;
     real_t realpart;
 } Particle;
 
 typedef struct Parameters {
 public:
-    real_t a0, tau, xmax, xmin, dx;
+    real_t a0, tau, xmax, xmin, dx, lambda;
     real_t x_rise, x_uni, x_fall, x_end;
     real_t n_plasma;
+    real_t pi_cs, orb_en;     //photoionization cross-section and orbital energy
     uint32_t cell_part_num;
     uint32_t total_part_num;
     uint32_t ngrid;
@@ -78,9 +81,14 @@ __global__ void initializeFieldsKernel(real_t *ey, real_t *bz, real_t *ex, Param
 __global__ void initializeParticlesKernel(Particle *particles, Parameters para) {
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i < para.total_part_num) {
-        particles[i].x = para.x_rise + (i / para.cell_part_num) * para.dx + (i % para.cell_part_num) * para.dx / para.cell_part_num;
+        curandState state;
+        unsigned long seed = i;
+        curand_init(seed, threadID, 0, &state);
+        particles[i].free = true;
+        particles[i].x = para.x_rise + curand_uniform(&state) * (para.x_end - para.x_rise);
         particles[i].px = 0.0;
         particles[i].py = 0.0;
+        particles[i].pz = 0.0;
         particles[i].gamma = 1.0;
         particles[i].realpart = particles[i].x >= para.x_uni ? \
                                 (particles[i].x > para.x_fall ? (para.n_plasma * (para.x_end - particles[i].x) / (1.1e3 * (para.x_end - para.x_fall))) : (para.n_plasma / 1.1e3)) : \
@@ -117,7 +125,12 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
     //advance particles
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
         
-    if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx) {
+    if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && (!part[i].free)) {
+        curandState state;
+        unsigned long seed = i;
+        curand_init(seed, threadID, 0, &state);
+    }
+    if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && part[i].free) {
         uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
         real_t eyy = ey[ix] * (para.xmin + ix * para.dx + para.dx - part[i].x) / para.dx + ey[ix + 1] * (part[i].x - para.xmin - ix * para.dx) / para.dx;
         real_t exx, bzz;
@@ -132,7 +145,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         real_t t, s, pxm, pym, pxp, pyp, pxq, pyq;
         pxm = part[i].px - (exx) * PI * para.dx / 2;
         pym = part[i].py - (eyy) * PI * para.dx / 2;
-        t = - (bzz) * PI * para.dx / (2 * sqrt(1 + pxm * pxm + pym * pym));
+        t = - (bzz) * PI * para.dx / (2 * sqrt(1 + pxm * pxm + pym * pym + part[i].pz * part[i].pz));
         s = 2 * t / (1 + t * t);
         pxq = pxm + pym * t;
         pyq = pym - pxm * t;
@@ -140,7 +153,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         pxp = pxm + pyq * s;
         part[i].px = pxp - (exx) * PI * para.dx / 2;
         part[i].py = pyp - (eyy) * PI * para.dx / 2;
-        part[i].gamma = sqrt(1 + part[i].px * part[i].px + part[i].py * part[i].py);
+        part[i].gamma = sqrt(1 + part[i].px * part[i].px + part[i].py * part[i].py + part[i].pz * part[i].pz);
 
         real_t xnew = part[i].x + part[i].px * para.dx / (2 * part[i].gamma);
         uint32_t ixnew = (uint32_t) ((xnew - para.xmin) / para.dx);

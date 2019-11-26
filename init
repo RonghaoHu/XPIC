@@ -1,0 +1,24 @@
+#laser a0
+2
+#laser duration
+8
+#box length
+500
+#number of grids
+10000
+#simulation length
+300
+#plasma rises
+90
+#plasma uniform
+100
+#plasma falls
+400
+#plasma ends
+410
+#plasma density
+1
+#particles per cell
+10
+#OK
+1
