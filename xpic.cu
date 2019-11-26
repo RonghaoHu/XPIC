@@ -83,7 +83,7 @@ __global__ void initializeParticlesKernel(Particle *particles, Parameters para) 
     if(i < para.total_part_num) {
         curandState state;
         unsigned long seed = i;
-        curand_init(seed, threadID, 0, &state);
+        curand_init(seed, i, 0, &state);
         particles[i].free = true;
         particles[i].x = para.x_rise + curand_uniform(&state) * (para.x_end - para.x_rise);
         particles[i].px = 0.0;
@@ -128,7 +128,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
     if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && (!part[i].free)) {
         curandState state;
         unsigned long seed = i;
-        curand_init(seed, threadID, 0, &state);
+        curand_init(seed, i, 0, &state);
     }
     if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && part[i].free) {
         uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
