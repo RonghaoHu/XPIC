@@ -184,6 +184,36 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
     }
 }
 
+void saveData(int index,real_t *ey, real_t *bz, real_t *ex, real_t *np, Particle *particles,) {
+    char name[120];
+    char s[100];
+    FILE *fp;
+    
+    sprintf(name,"fields_%d.dat", index);
+    fp = fopen(name,"w");
+    strcpy(s,FLAG);
+    strcat(s," ");
+    for(uint32_t i = 0; i < para.ngrid; i++) {
+        fprintf(fp, s, ey[i]);
+        fprintf(fp, s, bz[i]);
+        fprintf(fp, s, ex[i]);
+        fprintf(fp, s, np[i]);
+        fprintf(fp, "\n");
+    }
+
+    fclose(fp);
+
+    sprintf(name,"particles_%d.dat", index);
+    fp = fopen(name,"w");
+    for(uint32_t i = 0; i < para.total_part_num; i++) {
+        fprintf(fp, s, particles[i].x);
+        fprintf(fp, s, particles[i].px);
+        fprintf(fp, s, particles[i].py);
+        fprintf(fp, s, particles[i].gamma);
+        fprintf(fp, "\n");
+    }
+    fclose(fp);
+}
 // Advance Ey and Bz using CUDA.
 cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
                             real_t *jx, real_t *jy, real_t *np,
@@ -191,6 +221,7 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
     
     real_t *dev_ey, *dev_bz, *dev_ex;
     real_t *dev_jx, *dev_jy, *dev_np;
+    uint32_t file_index;
     Particle *dev_particles;
     cudaDeviceProp deviceProp;
     cudaAssert( cudaGetDeviceProperties(&deviceProp, 0) );
@@ -228,6 +259,16 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
     initializeParticlesKernel<<<(para.total_part_num + 255)/256, 256>>>(dev_particles, para);
     cudaAssert( cudaGetLastError() );
     cudaAssert( cudaDeviceSynchronize() );
+
+    cudaAssert( cudaMemcpy(ey, dev_ey, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+    cudaAssert( cudaMemcpy(bz, dev_bz, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+    cudaAssert( cudaMemcpy(ex, dev_ex, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+    cudaAssert( cudaMemcpy(np, dev_np, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+    cudaAssert( cudaMemcpy((void *)particles, (void *)dev_particles, para.total_part_num * sizeof(Particle), cudaMemcpyDeviceToHost) );
+    
+    file_index = 0;
+    saveData(file_index, ey, bz, ex, np, particles);
+    file_index++;
     
     for(real_t x = 0; x < para.sim_len; x += para.dx / 2) {
         // Launch a kernel on the GPU with one thread for each element.
@@ -250,18 +291,18 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
         advanceExyKernel<<<(para.ngrid+254)/256, 256>>>(dev_ey, dev_bz, dev_ex, dev_jx, dev_jy, para);
         cudaAssert( cudaGetLastError() );
         cudaAssert( cudaDeviceSynchronize() );
+
+        if (x >= file_index * 10 && x < file_index * 10 + para.dx / 2) {
+            cudaAssert( cudaMemcpy(ey, dev_ey, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+            cudaAssert( cudaMemcpy(bz, dev_bz, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+            cudaAssert( cudaMemcpy(ex, dev_ex, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+            cudaAssert( cudaMemcpy(np, dev_np, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+            cudaAssert( cudaMemcpy((void *)particles, (void *)dev_particles, para.total_part_num * sizeof(Particle), cudaMemcpyDeviceToHost) );
+            
+            saveData(file_index, ey, bz, ex, np, particles);
+            file_index++;
+        }
     }
-    // Copy output vector from GPU buffer to host memory.
-    cudaAssert( cudaMemcpy(ey, dev_ey, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
-    
-    cudaAssert( cudaMemcpy(bz, dev_bz, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
-    
-    cudaAssert( cudaMemcpy(ex, dev_ex, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
-    
-    cudaAssert( cudaMemcpy(np, dev_np, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
-    
-    cudaAssert( cudaMemcpy((void *)particles, (void *)dev_particles, para.total_part_num * sizeof(Particle), cudaMemcpyDeviceToHost) );
-    
     cudaAssert( cudaFree(dev_ey) );
     cudaAssert( cudaFree(dev_bz) );
     cudaAssert( cudaFree(dev_ex) );
@@ -277,7 +318,6 @@ int main()
 {
     Parameters para;
     uint32_t ok=0;
-    FILE *fp;
     para.xmin = 0;
     while (ok == 0) {
  	    printf("Please input\nlaser a0 : ");
@@ -324,30 +364,6 @@ int main()
     // Advance fields in parallel.
     cudaAssert( advanceWithCuda(ey, bz, ex, jx, jy, np, particles, para) );
 	
-    fp = fopen("fields.txt","w");
-    char s[100];
-    strcpy(s,FLAG);
-    strcat(s," ");
-    for(uint32_t i = 0; i < para.ngrid; i++) {
-        fprintf(fp, s, ey[i]);
-        fprintf(fp, s, bz[i]);
-        fprintf(fp, s, ex[i]);
-        fprintf(fp, s, np[i]);
-        fprintf(fp, "\n");
-    }
-
-    fclose(fp);
-
-    fp = fopen("particles.txt","w");
-    for(uint32_t i = 0; i < para.total_part_num; i++) {
-        fprintf(fp, s, particles[i].x);
-        fprintf(fp, s, particles[i].px);
-        fprintf(fp, s, particles[i].py);
-        fprintf(fp, s, particles[i].gamma);
-        fprintf(fp, "\n");
-    }
-    fclose(fp);
-
     free(particles);
     free(ey);
     free(ex);
