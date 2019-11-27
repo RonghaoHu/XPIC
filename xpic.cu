@@ -93,8 +93,8 @@ __global__ void initializeParticlesKernel(Particle *particles, Parameters para) 
         particles[i].pz = 0.0;
         particles[i].gamma = 1.0;
         particles[i].realpart = particles[i].x >= para.x_uni ? \
-                                (particles[i].x > para.x_fall ? (para.n_plasma * (para.x_end - particles[i].x) / (1.1e3 * (para.x_end - para.x_fall))) : (para.n_plasma / 1.1e3)) : \
-                                (para.n_plasma * (particles[i].x - para.x_rise) / (1.1e3 * (para.x_uni - para.x_rise)));
+                                (particles[i].x > para.x_fall ? (para.n_plasma * (para.x_end - particles[i].x) / (para.x_end - para.x_fall)) : para.n_plasma) : \
+                                (para.n_plasma * (particles[i].x - para.x_rise) / (para.x_uni - para.x_rise));
         particles[i].realpart /= para.cell_part_num;
     }
 }
@@ -323,7 +323,9 @@ void getParameters(Parameters *para) {
     para->xmin = 0;
     while (ok == 0) {
  	    printf("Please input\nlaser a0 : ");
-	    scanf(FLAG, &para->a0);
+        scanf(FLAG, &para->a0);
+        printf("laser wavelength in nanometer: ");
+	    scanf(FLAG, &para->lambda);
 	    printf("laser duration : ");
 	    scanf(FLAG, &para->tau);
 	    printf("box length : ");
@@ -349,6 +351,7 @@ void getParameters(Parameters *para) {
     }
     para->dx = (para->xmax - para->xmin) / para->ngrid;
     para->total_part_num = para->cell_part_num * para->ngrid * (para->x_end - para->x_rise) / (para->xmax - para->xmin);
+    para->n_plasma *= para->lambda * para->lambda / 1.1e9;
 }
 
 int main()

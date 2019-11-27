@@ -1,5 +1,7 @@
 #laser a0
 2
+#laser wavelength in nm
+1000
 #laser duration
 8
 #box length
@@ -16,7 +18,7 @@
 400
 #plasma ends
 410
-#plasma density
+#plasma density in 10^18 cc
 1
 #particles per cell
 100
