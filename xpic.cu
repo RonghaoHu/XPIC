@@ -326,13 +326,13 @@ void getParameters(Parameters *para) {
         scanf(FLAG, &para->a0);
         printf("laser wavelength in nanometer: ");
 	    scanf(FLAG, &para->lambda);
-	    printf("laser duration : ");
+	    printf("laser duration in laser period : ");
 	    scanf(FLAG, &para->tau);
-	    printf("box length : ");
+	    printf("box length in wavelength : ");
 	    scanf(FLAG, &para->xmax);
 	    printf("number of grids : ");
 	    scanf("%u", &para->ngrid);
-        printf("simulation length : ");
+        printf("simulation length in wavelength: ");
         scanf(FLAG, &para->sim_len);
         printf("plasma rises from : ");
         scanf(FLAG, &para->x_rise);

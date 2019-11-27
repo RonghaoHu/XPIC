@@ -1,9 +1,9 @@
 #laser a0
 2
 #laser wavelength in nm
-1000
+10
 #laser duration
-8
+10
 #box length
 500
 #number of grids
@@ -11,15 +11,15 @@
 #simulation length
 300
 #plasma rises
-90
-#plasma uniform
 100
+#plasma uniform
+100.1
 #plasma falls
 400
 #plasma ends
-410
+400.1
 #plasma density in 10^18 cc
-1
+1.1e5
 #particles per cell
 100
 #OK
