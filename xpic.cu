@@ -74,8 +74,12 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
 __global__ void initializeFieldsKernel(real_t *ey, real_t *bz, real_t *ex, Parameters para) {
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i < para.ngrid) {
-        ey[i] = para.a0 * exp ( - ( para.xmin + i * para.dx - para.xmin - 3 * para.tau ) * ( para.xmin + i * para.dx - para.xmin - 3 * para.tau ) / ( para.tau * para.tau ) ) * sin ( 2 * PI * ( para.xmin + i * para.dx ) );
-        bz[i] = para.a0 * exp ( - ( para.xmin + i * para.dx + 0.75 * para.dx - para.xmin - 3 * para.tau ) * ( para.xmin + i * para.dx + 0.75 * para.dx - para.xmin - 3 * para.tau ) / ( para.tau * para.tau ) ) * sin ( 2 * PI * ( para.xmin + i * para.dx + 0.75 * para.dx ) );
+        ey[i] = 0.0;
+        bz[i] = 0.0;
+        for (int j = 0; j < para.n_pulse; j++) {
+            ey[i] += para.a0 * exp ( - ( para.xmin + i * para.dx - para.xmin - 3 * para.tau - j * para.t_interval) * ( para.xmin + i * para.dx - para.xmin - 3 * para.tau - j * para.t_interval) / ( para.tau * para.tau ) ) * sin ( 2 * PI * ( para.xmin + i * para.dx ) );
+            bz[i] += para.a0 * exp ( - ( para.xmin + i * para.dx + 0.75 * para.dx - para.xmin - 3 * para.tau - j * para.t_interval) * ( para.xmin + i * para.dx + 0.75 * para.dx - para.xmin - 3 * para.tau - j * para.t_interval) / ( para.tau * para.tau ) ) * sin ( 2 * PI * ( para.xmin + i * para.dx + 0.75 * para.dx ) );
+        }
         ex[i] = 0.0;
     }
 }
@@ -196,6 +200,7 @@ void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, Pa
     strcpy(s,FLAG);
     strcat(s," ");
     for(uint32_t i = 0; i < para.ngrid; i++) {
+        fprintf(fp, s, para.xmin + i * para.dx);
         fprintf(fp, s, ey[i]);
         fprintf(fp, s, bz[i]);
         fprintf(fp, s, ex[i]);
@@ -322,18 +327,20 @@ void getParameters(Parameters *para) {
     uint32_t ok=0;
     para->xmin = 0;
     while (ok == 0) {
- 	    printf("Please input\nlaser a0 : ");
+        printf("Please input\nlaser a0 : ");
         scanf(FLAG, &para->a0);
         printf("number of laser pulses: ");
-	    scanf(FLAG, &para->n_pulse);
+        scanf("%u", &para->n_pulse);
         printf("laser wavelength in nanometer: ");
-	    scanf(FLAG, &para->lambda);
-	    printf("laser duration in laser period : ");
-	    scanf(FLAG, &para->tau);
-	    printf("box length in wavelength : ");
-	    scanf(FLAG, &para->xmax);
-	    printf("number of grids : ");
-	    scanf("%u", &para->ngrid);
+        scanf(FLAG, &para->lambda);
+        printf("laser duration in laser period : ");
+        scanf(FLAG, &para->tau);
+        printf("interval of laser pulses in laser period : ");
+        scanf(FLAG, &para->t_interval);
+        printf("box length in wavelength : ");
+        scanf(FLAG, &para->xmax);
+        printf("number of grids : ");
+        scanf("%u", &para->ngrid);
         printf("simulation length in wavelength: ");
         scanf(FLAG, &para->sim_len);
         printf("plasma rises from : ");

@@ -1,9 +1,13 @@
 #laser a0
-2
+0.1
+#number of laser pulses
+1
 #laser wavelength in nm
 10
 #laser duration
 10
+#interval of laser pulses
+20
 #box length
 500
 #number of grids

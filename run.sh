@@ -1,4 +1,4 @@
 #!/bin/bash
 rm xpic
-nvcc -o xpic xpic.cu
+nvcc -DHIGH_PRECISION -o xpic xpic.cu
 grep -v '#' init | ./xpic
