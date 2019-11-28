@@ -324,6 +324,8 @@ void getParameters(Parameters *para) {
     while (ok == 0) {
  	    printf("Please input\nlaser a0 : ");
         scanf(FLAG, &para->a0);
+        printf("number of laser pulses: ");
+	    scanf(FLAG, &para->n_pulse);
         printf("laser wavelength in nanometer: ");
 	    scanf(FLAG, &para->lambda);
 	    printf("laser duration in laser period : ");
