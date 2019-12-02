@@ -3,7 +3,7 @@
 #number of laser pulses
 1
 #laser wavelength in nm
-10
+50
 #laser duration
 10
 #interval of laser pulses
@@ -27,7 +27,7 @@
 #particles per cell
 100
 #photoionization cross section in Mb
-5.98561e-04
+1.21220
 #orbital energy in eV
 13.605692
 #OK
