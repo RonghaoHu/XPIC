@@ -132,9 +132,9 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
         
     if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && (!part[i].free)) {
-        curandState state;
-        unsigned long seed = i;
-        curand_init(seed, i, 0, &state);
+        //curandState state;
+        //unsigned long seed = i;
+        //curand_init(seed, i, 0, &state);
 
         uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
         real_t eyy = ey[ix] * (para.xmin + ix * para.dx + para.dx - part[i].x) / para.dx + ey[ix + 1] * (part[i].x - para.xmin - ix * para.dx) / para.dx;
@@ -143,7 +143,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         //real_t flux = intensity / en_l;
         //real_t ph_p = flux * para.pi_cs * 1e-18 * para.dx * 0.5 * para.lambda * 1e-9 / 2.9979e8;
         real_t ph_p = 11518.3658 * eyy * eyy * para.pi_cs * para.dx;
-        if (curand_uniform(&state) <= ph_p) {
+        if (/*curand_uniform(&state)*/0.1 <= ph_p) {
             part[i].free = true;
         }
     }
