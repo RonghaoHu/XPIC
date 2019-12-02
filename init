@@ -26,5 +26,9 @@
 1.1e4
 #particles per cell
 100
+#photoionization cross section in Mb
+5.98561e-04
+#orbital energy in eV
+13.605692
 #OK
 1

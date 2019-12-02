@@ -90,7 +90,7 @@ __global__ void initializeParticlesKernel(Particle *particles, Parameters para) 
         curandState state;
         unsigned long seed = i;
         curand_init(seed, i, 0, &state);
-        particles[i].free = true;
+        particles[i].free = false;
         particles[i].x = para.x_rise + curand_uniform(&state) * (para.x_end - para.x_rise);
         particles[i].px = 0.0;
         particles[i].py = 0.0;
@@ -135,6 +135,16 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         curandState state;
         unsigned long seed = i;
         curand_init(seed, i, 0, &state);
+
+        real_t eyy = ey[ix] * (para.xmin + ix * para.dx + para.dx - part[i].x) / para.dx + ey[ix + 1] * (part[i].x - para.xmin - ix * para.dx) / para.dx;
+        //real_t intensity = 1.37e24*eyy*eyy/(para.lambda*para.lambda);
+        //real_t en_l = 1.98373e-16 / para.lambda;
+        //real_t flux = intensity / en_l;
+        //real_t ph_p = flux * para.pi_cs * 1e-18 * para.dx * 0.5 * para.lambda * 1e-9 / 2.9979e8;
+        real_t ph_p = 11518.3658 * eyy * eyy * para.pi_cs * para.dx;
+        if (curand_uniform(&state) <= ph_p) {
+            part[i].free = true;
+        }
     }
     if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && part[i].free) {
         uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
@@ -355,6 +365,10 @@ void getParameters(Parameters *para) {
         scanf(FLAG, &para->n_plasma);
         printf("number of particles per cell : ");
         scanf("%u", &para->cell_part_num);
+        printf("photoionization cross section in Mb : ");
+        scanf(FLAG, &para->pi_cs);
+        printf("orbital energy in eV : ");
+        scanf(FLAG, &para->orb_en);
 	    printf("Is setup OK ? 0 No 1 Yes : ");
 	    scanf("%u", &ok);
     }
