@@ -136,6 +136,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         unsigned long seed = i;
         curand_init(seed, i, 0, &state);
 
+        uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
         real_t eyy = ey[ix] * (para.xmin + ix * para.dx + para.dx - part[i].x) / para.dx + ey[ix + 1] * (part[i].x - para.xmin - ix * para.dx) / para.dx;
         //real_t intensity = 1.37e24*eyy*eyy/(para.lambda*para.lambda);
         //real_t en_l = 1.98373e-16 / para.lambda;
