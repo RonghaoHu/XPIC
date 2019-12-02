@@ -23,7 +23,7 @@
 #plasma ends
 400.1
 #plasma density in 10^18 cc
-1.1e4
+1.1e3
 #particles per cell
 100
 #photoionization cross section in Mb
