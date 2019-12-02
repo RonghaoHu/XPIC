@@ -84,14 +84,11 @@ __global__ void initializeFieldsKernel(real_t *ey, real_t *bz, real_t *ex, Param
     }
 }
 
-__global__ void initializeParticlesKernel(Particle *particles, Parameters para) {
+__global__ void initializeParticlesKernel(Particle *particles, Parameters para, curandState *devStates) {
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i < para.total_part_num) {
-        curandState state;
-        unsigned long seed = i;
-        curand_init(seed, i, 0, &state);
         particles[i].free = false;
-        particles[i].x = para.x_rise + curand_uniform(&state) * (para.x_end - para.x_rise);
+        particles[i].x = para.x_rise + curand_uniform(&devStates[threadIdx.x]) * (para.x_end - para.x_rise);
         particles[i].px = 0.0;
         particles[i].py = 0.0;
         particles[i].pz = 0.0;
@@ -127,15 +124,11 @@ __global__ void advanceBzKernel(real_t *ey, real_t *bz, Parameters para) {
 
 __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex, 
                                        real_t *jx, real_t *jy, real_t *np,
-                                       Particle *part, Parameters para) {
+                                       Particle *part, Parameters para, curandState *devStates) {
     //advance particles
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
         
     if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && (!part[i].free)) {
-        //curandState state;
-        //unsigned long seed = i;
-        //curand_init(seed, i, 0, &state);
-
         uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
         real_t eyy = ey[ix] * (para.xmin + ix * para.dx + para.dx - part[i].x) / para.dx + ey[ix + 1] * (part[i].x - para.xmin - ix * para.dx) / para.dx;
         //real_t intensity = 1.37e24*eyy*eyy/(para.lambda*para.lambda);
@@ -143,7 +136,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         //real_t flux = intensity / en_l;
         //real_t ph_p = flux * para.pi_cs * 1e-18 * para.dx * 0.5 * para.lambda * 1e-9 / 2.9979e8;
         real_t ph_p = 11518.3658 * eyy * eyy * para.pi_cs * para.dx;
-        if (/*curand_uniform(&state)*/0.1 <= ph_p) {
+        if (curand_uniform(&devStates[threadIdx.x]) <= ph_p) {
             part[i].free = true;
         }
     }
@@ -234,6 +227,15 @@ void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, Pa
 
     printf("Saved data, file index is %d.\n", index);
 }
+
+__global__ void setup_random_kernel(curandState *state)
+{
+    uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    /* Each thread gets same seed, a different sequence 
+       number, no offset */
+    curand_init(1234, i, 0, &state[threadIdx.x]);
+}
+
 // Advance Ey and Bz using CUDA.
 cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
                             real_t *jx, real_t *jy, real_t *np,
@@ -242,17 +244,11 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
     real_t *dev_ey, *dev_bz, *dev_ex;
     real_t *dev_jx, *dev_jy, *dev_np;
     uint32_t file_index;
+    curandState *devStates;
     Particle *dev_particles;
     cudaDeviceProp deviceProp;
     cudaAssert( cudaGetDeviceProperties(&deviceProp, 0) );
     
-    real_t use_memory = 6 * para.ngrid * sizeof(real_t) + para.total_part_num * sizeof(Particle);
-    char s[100];
-    strcpy(s, "Using GPU memory ");
-    strcat(s, FLAG);
-    strcat(s, " MB / Total GPU memory %u MB\n");
-    printf(s, use_memory / (1024 * 1024), deviceProp.totalGlobalMem / (1024 * 1024));
-    assert(deviceProp.totalGlobalMem > use_memory);
     
     // Choose which GPU to run on, change this on a multi-GPU system.
     cudaAssert( cudaSetDevice(0) );
@@ -271,12 +267,15 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
     cudaAssert( cudaMalloc((void**)&dev_np, para.ngrid * sizeof(real_t)) );
     
     cudaAssert( cudaMalloc((void**)&dev_particles, para.total_part_num * sizeof(Particle)) );
+
+    cudaAssert( cudaMalloc((void**)&devStates, 256 * sizeof(curandState)) );
     
+    setup_random_kernel<<<1, 256>>>(devStates);
     initializeFieldsKernel<<<(para.ngrid + 255)/256, 256>>>(dev_ey, dev_bz, dev_ex, para);
     cudaAssert( cudaGetLastError() );
     cudaAssert( cudaDeviceSynchronize() );
     
-    initializeParticlesKernel<<<(para.total_part_num + 255)/256, 256>>>(dev_particles, para);
+    initializeParticlesKernel<<<(para.total_part_num + 255)/256, 256>>>(dev_particles, para, devStates);
     cudaAssert( cudaGetLastError() );
     cudaAssert( cudaDeviceSynchronize() );
 
@@ -300,7 +299,7 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
         cudaAssert( cudaGetLastError() );
         cudaAssert( cudaDeviceSynchronize() );
         
-        advanceParticlesKernel<<<(para.total_part_num + 255)/256, 256>>>(dev_ey, dev_bz, dev_ex, dev_jx, dev_jy, dev_np, dev_particles, para);
+        advanceParticlesKernel<<<(para.total_part_num + 255)/256, 256>>>(dev_ey, dev_bz, dev_ex, dev_jx, dev_jy, dev_np, dev_particles, para, devStates);
         cudaAssert( cudaGetLastError() );
         cudaAssert( cudaDeviceSynchronize() );
         
