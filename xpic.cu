@@ -162,6 +162,17 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         real_t xnew = part[i].x + part[i].px * para.dx / (2 * part[i].gamma);
         uint32_t ixnew = (uint32_t) ((xnew - para.xmin) / para.dx);
 
+        for(int is = -1; is < 3; is++) {
+            real_t Sx = 0.5 - abs(para.xmin + (ixnew + is) * para.dx - xnew) / (4 * para.dx); 
+            atomicAdd(np + ixnew + is, part[i].realpart * Sx);
+            atomicAdd(jy + ixnew + is, 0.0 - part[i].realpart * Sx * part[i].py / part[i].gamma);
+        }
+        ixnew = (uint32_t) ((xnew - para.xmin) / para.dx - 0.5);
+        for(int is = -1; is < 3; is++) {
+            real_t Sx = 0.5 - abs(para.xmin + (ixnew + is + 0.5) * para.dx - xnew) / (4 * para.dx); 
+            atomicAdd(jx + ixnew + is, 0.0 - part[i].realpart * Sx * part[i].px / part[i].gamma);
+        }
+        /*
         atomicAdd(np + ixnew, part[i].realpart * (para.xmin + (ixnew + 1) * para.dx - xnew) / para.dx);
         atomicAdd(np + ixnew + 1, part[i].realpart * (xnew - para.xmin - ixnew * para.dx) / para.dx);
         if(ix == ixnew) {
@@ -182,7 +193,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
             ixnew = (uint32_t) (((xnew + part[i].x) * 0.5 - para.xmin) / para.dx);
             atomicAdd(jy + ixnew, 0.0 - part[i].realpart * part[i].py * (para.xmin + (ixnew + 1) * para.dx - (xnew + part[i].x) * 0.5) / (para.dx * part[i].gamma));
             atomicAdd(jy + ixnew + 1, 0.0 - part[i].realpart * part[i].py * ((xnew + part[i].x) * 0.5 - para.xmin - ixnew * para.dx) / (para.dx * part[i].gamma));
-        }
+        }*/
         
         part[i].x = xnew;
     }
