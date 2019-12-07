@@ -128,9 +128,9 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
     //advance particles
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
         
-    if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && (!part[i].free)) {
+    if(i < para.total_part_num && part[i].x > para.xmin + 2 * para.dx && part[i].x < para.xmax - 2 * para.dx && (!part[i].free)) {
         uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
-        real_t eyy = ey[ix] * (para.xmin + ix * para.dx + para.dx - part[i].x) / para.dx + ey[ix + 1] * (part[i].x - para.xmin - ix * para.dx) / para.dx;
+        real_t eyy = 0.5*(ey[ix+1]+ey[ix-1]-2*ey[ix]) * (part[i].x - para.xmin - ix * para.dx) * (part[i].x - para.xmin - ix * para.dx) / (para.dx*para.dx) + 0.5*(ey[ix + 1]-ey[ix-1]) * (part[i].x - para.xmin - ix * para.dx) / para.dx+ey[ix];
         //real_t intensity = 1.37e24*eyy*eyy/(para.lambda*para.lambda);
         //real_t en_l = 1.98373e-16 / para.lambda;
         //real_t flux = intensity / en_l;
@@ -140,18 +140,12 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
             part[i].free = true;
         }
     }
-    if(i < para.total_part_num && part[i].x > para.xmin + para.dx && part[i].x < para.xmax - 2 * para.dx && part[i].free) {
-        uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
-        real_t eyy = ey[ix] * (para.xmin + ix * para.dx + para.dx - part[i].x) / para.dx + ey[ix + 1] * (part[i].x - para.xmin - ix * para.dx) / para.dx;
-        real_t exx, bzz;
-        if(part[i].x > (para.xmin + ix * para.dx + 0.5 * para.dx)) {
-            exx = ex[ix] * (para.xmin + ix * para.dx + 1.5 * para.dx - part[i].x) / para.dx + ex[ix + 1] * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / para.dx;
-            bzz = bz[ix] * (para.xmin + ix * para.dx + 1.5 * para.dx - part[i].x) / para.dx + bz[ix + 1] * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / para.dx;
-        }
-        else {
-            exx = ex[ix - 1] * (para.xmin + ix * para.dx + 0.5 * para.dx - part[i].x) / para.dx + ex[ix] * (part[i].x - para.xmin - ix * para.dx + 0.5 * para.dx) / para.dx;
-            bzz = bz[ix - 1] * (para.xmin + ix * para.dx + 0.5 * para.dx - part[i].x) / para.dx + bz[ix] * (part[i].x - para.xmin - ix * para.dx + 0.5 * para.dx) / para.dx;
-        }
+    if(i < para.total_part_num && part[i].x > para.xmin + 2 * para.dx && part[i].x < para.xmax - 2 * para.dx && part[i].free) {
+        uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx - 0.5);
+        real_t exx = 0.5*(ex[ix+1]+ex[ix-1]-2*ex[ix]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / (para.dx*para.dx) + 0.5*(ex[ix + 1]-ex[ix-1]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / para.dx+ex[ix];
+        real_t bzz = 0.5*(bz[ix+1]+bz[ix-1]-2*bz[ix]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / (para.dx*para.dx) + 0.5*(bz[ix + 1]-bz[ix-1]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / para.dx+bz[ix];
+        ix = (uint32_t) ((part[i].x - para.xmin) / para.dx);
+        real_t eyy = 0.5*(ey[ix+1]+ey[ix-1]-2*ey[ix]) * (part[i].x - para.xmin - ix * para.dx) * (part[i].x - para.xmin - ix * para.dx) / (para.dx*para.dx) + 0.5*(ey[ix + 1]-ey[ix-1]) * (part[i].x - para.xmin - ix * para.dx) / para.dx+ey[ix];
         real_t t, s, pxm, pym, pxp, pyp, pxq, pyq;
         pxm = part[i].px - (exx) * PI * para.dx / 2;
         pym = part[i].py - (eyy) * PI * para.dx / 2;
