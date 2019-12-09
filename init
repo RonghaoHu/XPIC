@@ -5,23 +5,23 @@
 #laser wavelength in nm
 50
 #laser duration
-10
+5
 #interval of laser pulses
 20
 #box length
-500
+1000
 #number of grids
-20000
+50000
 #simulation length
-300
+800
 #plasma rises
-100
+200
 #plasma uniform
-100.1
+200.1
 #plasma falls
-400
+800
 #plasma ends
-400.1
+800.1
 #plasma density in 10^18 cc
 1.1e3
 #particles per cell
