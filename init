@@ -25,7 +25,7 @@
 #plasma density in 10^18 cc
 1.1e3
 #particles per cell
-1000
+100
 #photoionization cross section in Mb
 1.21220
 #orbital energy in eV
