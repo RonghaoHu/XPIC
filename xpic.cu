@@ -88,7 +88,7 @@ __global__ void initializeParticlesKernel(Particle *particles, Parameters para, 
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t ncell = (para.x_end - para.x_rise) / para.dx;
     if(i < para.total_part_num) {
-        particles[i].free = true;
+        particles[i].free = false;
         //particles[i].x = para.x_rise + curand_uniform(&devStates[threadIdx.x]) * (para.x_end - para.x_rise);
         //particles[i].x = para.x_rise + (i / para.cell_part_num) * para.dx + (i % para.cell_part_num) * para.dx / para.cell_part_num;
         particles[i].x = para.x_rise + ((i*256)%ncell) * para.dx + uint32_t((i*256)/ncell) * para.dx / para.cell_part_num;
