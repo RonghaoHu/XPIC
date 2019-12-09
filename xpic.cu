@@ -100,6 +100,7 @@ __global__ void initializeParticlesKernel(Particle *particles, Parameters para, 
                                 (particles[i].x > para.x_fall ? (para.n_plasma * (para.x_end - particles[i].x) / (para.x_end - para.x_fall)) : para.n_plasma) : \
                                 (para.n_plasma * (particles[i].x - para.x_rise) / (para.x_uni - para.x_rise));
         particles[i].realpart /= para.cell_part_num;
+        particles[i].realpart = particles[i].realpart >= 0.0 ? particles[i].realpart : 0.0;
     }
 }
 
