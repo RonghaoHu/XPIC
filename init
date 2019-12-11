@@ -1,7 +1,7 @@
 #laser a0
-0.5
+0.1
 #number of laser pulses
-6
+1
 #laser wavelength in nm
 50
 #laser duration
