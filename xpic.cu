@@ -140,7 +140,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         //real_t flux = intensity / en_l;
         //real_t ph_p = flux * para.pi_cs * 1e-18 * para.dx * 0.5 * para.lambda * 1e-9 / 2.9979e8;
         real_t ph_p = 11518.3658 * eyy * eyy * para.pi_cs * para.dx;
-        if (curand_uniform(&devStates[threadIdx.x]) < ph_p) {
+        if (curand_uniform(&devStates[threadIdx.x]) < ph_p && 1.37e24*eyy*eyy > part[i].realpart*1.1e9*1.98373e-16 / para.lambda) {
             //part[i].free = true;
             atomicAdd(jy + ix, part[i].realpart*1239.8317388397/(para.lambda*0.511e6*PI*para.dx*eyy));
         }
