@@ -141,7 +141,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         //real_t ph_p = flux * para.pi_cs * 1e-18 * para.dx * 0.5 * para.lambda * 1e-9 / 2.9979e8;
         real_t ph_p = 11518.3658 * eyy * eyy * para.pi_cs * para.dx;
         if (curand_uniform(&devStates[threadIdx.x]) < ph_p) {
-            part[i].free = true;
+            //part[i].free = true;
             atomicAdd(jy + ix, part[i].realpart*1239.8317388397/(para.lambda*0.511e6*PI*para.dx*eyy));
         }
         
@@ -205,7 +205,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
     }
 }
 
-void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, Particle *particles, Parameters para) {
+void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, real_t *jx, real_t *jy, Particle *particles, Parameters para) {
     char name[120];
     char s[100];
     FILE *fp;
@@ -220,6 +220,8 @@ void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, Pa
         fprintf(fp, s, bz[i]);
         fprintf(fp, s, ex[i]);
         fprintf(fp, s, np[i]);
+        fprintf(fp, s, jx[i]);
+        fprintf(fp, s, jy[i]);
         fprintf(fp, "\n");
     }
 
@@ -294,10 +296,12 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
     cudaAssert( cudaMemcpy(bz, dev_bz, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
     cudaAssert( cudaMemcpy(ex, dev_ex, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
     cudaAssert( cudaMemcpy(np, dev_np, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+    cudaAssert( cudaMemcpy(jx, dev_jx, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+    cudaAssert( cudaMemcpy(jy, dev_jy, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
     cudaAssert( cudaMemcpy((void *)particles, (void *)dev_particles, para.total_part_num * sizeof(Particle), cudaMemcpyDeviceToHost) );
     
     file_index = 0;
-    saveData(file_index, ey, bz, ex, np, particles, para);
+    saveData(file_index, ey, bz, ex, np, jx, jy, particles, para);
     file_index++;
     
     for(real_t x = 0; x < para.sim_len; x += para.dx / 2) {
@@ -327,9 +331,11 @@ cudaError_t advanceWithCuda(real_t *ey, real_t *bz, real_t *ex,
             cudaAssert( cudaMemcpy(bz, dev_bz, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
             cudaAssert( cudaMemcpy(ex, dev_ex, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
             cudaAssert( cudaMemcpy(np, dev_np, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+            cudaAssert( cudaMemcpy(jx, dev_jx, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
+            cudaAssert( cudaMemcpy(jy, dev_jy, para.ngrid * sizeof(real_t), cudaMemcpyDeviceToHost) );
             cudaAssert( cudaMemcpy((void *)particles, (void *)dev_particles, para.total_part_num * sizeof(Particle), cudaMemcpyDeviceToHost) );
             
-            saveData(file_index, ey, bz, ex, np, particles, para);
+            saveData(file_index, ey, bz, ex, np, jx, jy, particles, para);
             file_index++;
         }
     }
