@@ -9,21 +9,21 @@
 #interval of laser pulses
 20
 #box length
-1000
+500
 #number of grids
-50000
+20000
 #simulation length
-800
+400
 #plasma rises
-200
+100
 #plasma uniform
-200.1
+100.1
 #plasma falls
-800
+400
 #plasma ends
-800.1
+400.1
 #plasma density in 10^18 cc
-1.1e3
+1.1e5
 #particles per cell
 100
 #photoionization cross section in Mb
