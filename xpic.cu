@@ -143,6 +143,13 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         if (curand_uniform(&devStates[threadIdx.x]) < ph_p && 1.37e24*eyy*eyy > part[i].realpart*1.1e9*1.98373e-16 / para.lambda) {
             part[i].free = true;
             atomicAdd(jy + ix, part[i].realpart*1239.8317388397/(para.lambda*0.511e6*PI*para.dx*eyy));
+            real_t theta = acos(1-2*curand_uniform(&devStates[threadIdx.x]));
+            real_t phi = 2*PI*curand_uniform(&devStates[threadIdx.x]);
+            part[i].gamma = (1239.8317388397/para.lambda - para.orb_en)/0.511e6+1;
+            real_t p_k = sqrt(part[i].gamma * part[i].gamma - 1);
+            part[i].px = p_k * sin(theta) * cos(phi);
+            part[i].py = p_k * sin(theta) * sin(phi);
+            part[i].pz = p_k * cos(theta);
         }
         
     }
