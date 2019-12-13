@@ -1,5 +1,5 @@
 #laser a0
-0.1
+0.01
 #number of laser pulses
 1
 #laser wavelength in nm
@@ -23,7 +23,7 @@
 #plasma ends
 400.1
 #plasma density in 10^18 cc
-1.1e5
+1.1e4
 #particles per cell
 100
 #photoionization cross section in Mb
