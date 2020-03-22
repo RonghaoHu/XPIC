@@ -1,2 +1,2 @@
 # XPIC
-Xray photoionized plasma kinetics simulation
+X-ray photoionized plasma kinetics simulation
