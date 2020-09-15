@@ -7,10 +7,12 @@
 #include <device_launch_parameters.h>
 #include <curand.h>
 #include <curand_kernel.h>
+#include "hdf5.h"
 
 #define PI 3.14159265359
 
 #ifdef HIGH_PRECISION
+#define H5_REAL H5T_NATIVE_DOUBLE
 #if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ >= 600
 #else
 __device__ double atomicAdd(double* address, double val)
@@ -29,6 +31,7 @@ __device__ double atomicAdd(double* address, double val)
 #define FLAG "%lf"
 typedef double real_t;
 #else
+#define H5_REAL H5T_NATIVE_FLOAT
 #define FLAG "%f"
 typedef float real_t;
 #endif
@@ -139,10 +142,12 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         //real_t en_l = 1.98373e-16 / para.lambda;
         //real_t flux = intensity / en_l;
         //real_t ph_p = flux * para.pi_cs * 1e-18 * para.dx * 0.5 * para.lambda * 1e-9 / 2.9979e8;
-        real_t ph_p = 11518.3658 * eyy * eyy * para.pi_cs * para.dx;
-        if (curand_uniform(&devStates[threadIdx.x]) < ph_p && 1.37e24*eyy*eyy > part[i].realpart*1.1e9*1.98373e-16 / para.lambda) {
+        //real_t ph_p = 11518.3658 * eyy * eyy * para.pi_cs * para.dx;
+        real_t w_ph = 11518.3658 * eyy * eyy * para.pi_cs;
+        real_t t_ph = - log(curand_uniform(&devStates[threadIdx.x]))/w_ph;
+        if (t_ph <= para.dx && 1.37e24*eyy*eyy > part[i].realpart*1.1e9*1.98373e-16 / para.lambda) {
             part[i].free = true;
-            atomicAdd(jy + ix, part[i].realpart*1239.8317388397/(para.lambda*0.511e6*PI*para.dx*eyy));
+            atomicAdd(jy + ix, 6.927529399977104e-37*part[i].realpart*para.lambda/(para.dx*eyy));
             real_t theta = acos(1-2*curand_uniform(&devStates[threadIdx.x]));
             real_t phi = 2*PI*curand_uniform(&devStates[threadIdx.x]);
             part[i].gamma = (1239.8317388397/para.lambda - para.orb_en)/0.511e6+1;
@@ -153,7 +158,7 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
         }
         
     }
-    if(i < para.total_part_num && part[i].x > para.xmin + 2 * para.dx && part[i].x < para.xmax - 2 * para.dx && part[i].free) {
+    else if(i < para.total_part_num && part[i].x > para.xmin + 2 * para.dx && part[i].x < para.xmax - 2 * para.dx && part[i].free) {
         uint32_t ix = (uint32_t) ((part[i].x - para.xmin) / para.dx - 0.5);
         real_t exx = 0.5*(ex[ix+1]+ex[ix-1]-2*ex[ix]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / (para.dx*para.dx) + 0.5*(ex[ix + 1]-ex[ix-1]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / para.dx+ex[ix];
         real_t bzz = 0.5*(bz[ix+1]+bz[ix-1]-2*bz[ix]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / (para.dx*para.dx) + 0.5*(bz[ix + 1]-bz[ix-1]) * (part[i].x - para.xmin - ix * para.dx - 0.5 * para.dx) / para.dx+bz[ix];
@@ -207,43 +212,69 @@ __global__ void advanceParticlesKernel(real_t *ey, real_t *bz, real_t *ex,
             atomicAdd(jy + ixnew, 0.0 - part[i].realpart * part[i].py * (para.xmin + (ixnew + 1) * para.dx - (xnew + part[i].x) * 0.5) / (para.dx * part[i].gamma));
             atomicAdd(jy + ixnew + 1, 0.0 - part[i].realpart * part[i].py * ((xnew + part[i].x) * 0.5 - para.xmin - ixnew * para.dx) / (para.dx * part[i].gamma));
         }*/
-        
         part[i].x = xnew;
     }
 }
 
 void saveData(uint32_t index, real_t *ey, real_t *bz, real_t *ex, real_t *np, real_t *jx, real_t *jy, Particle *particles, Parameters para) {
-    char name[120];
-    char s[100];
-    FILE *fp;
+    real_t *pdata;
     
-    sprintf(name,"fields_%d.dat", index);
-    fp = fopen(name,"w");
-    strcpy(s,FLAG);
-    strcat(s," ");
-    for(uint32_t i = 0; i < para.ngrid; i++) {
-        fprintf(fp, s, para.xmin + i * para.dx);
-        fprintf(fp, s, ey[i]);
-        fprintf(fp, s, bz[i]);
-        fprintf(fp, s, ex[i]);
-        fprintf(fp, s, np[i]);
-        fprintf(fp, s, jx[i]);
-        fprintf(fp, s, jy[i]);
-        fprintf(fp, "\n");
-    }
+    pdata = (real_t *) malloc(para.total_part_num * 5 * sizeof(real_t));
 
-    fclose(fp);
-
-    sprintf(name,"particles_%d.dat", index);
-    fp = fopen(name,"w");
     for(uint32_t i = 0; i < para.total_part_num; i++) {
-        fprintf(fp, s, particles[i].x);
-        fprintf(fp, s, particles[i].px);
-        fprintf(fp, s, particles[i].py);
-        fprintf(fp, s, particles[i].gamma);
-        fprintf(fp, "\n");
+        pdata[i*5+0] = particles[i].x;
+        pdata[i*5+1] = particles[i].px;
+        pdata[i*5+2] = particles[i].py;
+        pdata[i*5+3] = particles[i].pz;
+        pdata[i*5+4] = particles[i].gamma;
     }
-    fclose(fp);
+    
+    char filename[20], dataname[20];
+    hid_t file_id, dataspace, dset_id;
+    hsize_t dimsf[1];
+    sprintf(filename, "data_%d.h5", index);
+    file_id = H5Fcreate(filename, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    dimsf[0] = para.ngrid;
+    dataspace = H5Screate_simple(1, dimsf, NULL);
+    sprintf(dataname, "density");
+    dset_id = H5Dcreate(file_id, dataname, H5_REAL, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5_REAL, H5S_ALL, H5S_ALL, H5P_DEFAULT, np);
+    H5Dclose(dset_id);
+
+    sprintf(dataname, "ey");
+    dset_id = H5Dcreate(file_id, dataname, H5_REAL, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5_REAL, H5S_ALL, H5S_ALL, H5P_DEFAULT, ey);
+    H5Dclose(dset_id);
+
+    sprintf(dataname, "bz");
+    dset_id = H5Dcreate(file_id, dataname, H5_REAL, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5_REAL, H5S_ALL, H5S_ALL, H5P_DEFAULT, bz);
+    H5Dclose(dset_id);
+
+    sprintf(dataname, "ex");
+    dset_id = H5Dcreate(file_id, dataname, H5_REAL, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5_REAL, H5S_ALL, H5S_ALL, H5P_DEFAULT, ex);
+    H5Dclose(dset_id);
+
+    sprintf(dataname, "jx");
+    dset_id = H5Dcreate(file_id, dataname, H5_REAL, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5_REAL, H5S_ALL, H5S_ALL, H5P_DEFAULT, jx);
+    H5Dclose(dset_id);
+
+    sprintf(dataname, "jy");
+    dset_id = H5Dcreate(file_id, dataname, H5_REAL, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5_REAL, H5S_ALL, H5S_ALL, H5P_DEFAULT, jy);
+    H5Dclose(dset_id);
+    H5Sclose(dataspace);
+
+    dimsf[0] = para.total_part_num*5;
+    dataspace = H5Screate_simple(1, dimsf, NULL);
+    sprintf(dataname, "particle");
+    dset_id = H5Dcreate(file_id, dataname, H5_REAL, dataspace, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dset_id, H5_REAL, H5S_ALL, H5S_ALL, H5P_DEFAULT, pdata);
+    H5Dclose(dset_id);
+    H5Sclose(dataspace);
+    H5Fclose(file_id); 
 
     printf("Saved data, file index is %d.\n", index);
 }
